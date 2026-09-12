@@ -1,0 +1,178 @@
+# Render Blueprint for SnickyLink's backend.
+# https://render.com/docs/blueprint-spec
+#
+# Recreates exactly what's already running on Render (created manually via
+# the dashboard, per backend/DEPLOYMENT_V1.md):
+#   - snickylink-api    web service   (FastAPI, Docker)
+#   - snickylink-worker background worker (same image, runs the scheduler +
+#                                       durable event delivery -- see
+#                                       DEPLOYMENT_V1.md's "worker" role.
+#                                       NOTE: create this as a new service if
+#                                       it doesn't already exist under this
+#                                       name -- check your dashboard first.)
+#   - snickylink-db     Postgres
+#   - snickylink-redis  Key Value (Redis-compatible)
+#
+# Names below MUST match your existing Render service names exactly, or
+# Render creates new services instead of attaching to the existing ones.
+# `plan`/instance-size fields are intentionally omitted throughout: Render
+# keeps an existing service's current plan when you sync a Blueprint that
+# omits it, so this file won't accidentally downgrade/resize anything
+# already running. Set sizes in the dashboard as before; use this file for
+# one-click *structure* recreation (e.g. after an account issue, or to spin
+# up a staging copy), not as the source of truth for compute sizing.
+
+services:
+  - type: web
+    runtime: docker
+    name: snickylink-api
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: snickylink-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "30"
+      - key: AUTO_CREATE_TABLES
+        value: "false"
+      - key: RUN_SCHEDULER
+        value: "false" # the dedicated worker owns the scheduler
+      - key: RUN_EVENT_WORKER
+        value: "false" # the dedicated worker owns event delivery
+      - key: CORS_ORIGINS
+        value: https://app.snickylink.app # update to your actual deployed frontend URL(s), comma-separated
+      - key: DB_POOL_SIZE
+        value: "10"
+      - key: DB_MAX_OVERFLOW
+        value: "20"
+      - key: DB_POOL_RECYCLE
+        value: "1800"
+      - key: MEDIA_SIGNING_KEY
+        generateValue: true
+      - key: MEDIA_BASE_URL
+        value: https://cdn.snickylink.app # update once media storage (S3/R2/Supabase Storage) is wired up
+      - key: MAX_IMAGE_BYTES
+        value: "10485760"
+      - key: MAX_IMAGE_PIXELS
+        value: "25000000"
+      - key: S3_BUCKET
+        value: snickylink-media
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: AI_PROVIDER
+        value: vision
+      - key: AI_API_KEY
+        sync: false
+      - key: FCM_SERVER_KEY
+        sync: false
+      - key: FCM_URL
+        value: https://fcm.googleapis.com/fcm/send
+      - key: SUSPENSION_REPORT_THRESHOLD
+        value: "3"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        value: no-reply@snickylink.app
+      - key: SMTP_TLS
+        value: "true"
+      - key: PASSWORD_RESET_URL
+        value: https://app.snickylink.app/reset-password
+      - key: REDIS_HOST
+        fromService:
+          type: keyvalue
+          name: snickylink-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: keyvalue
+          name: snickylink-redis
+          property: port
+
+  - type: worker
+    runtime: docker
+    name: snickylink-worker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    dockerCommand: python -m app.worker
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: snickylink-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: RUN_SCHEDULER
+        value: "true"
+      - key: RUN_EVENT_WORKER
+        value: "true"
+      - key: DB_POOL_SIZE
+        value: "10"
+      - key: DB_MAX_OVERFLOW
+        value: "20"
+      - key: DB_POOL_RECYCLE
+        value: "1800"
+      - key: MEDIA_SIGNING_KEY
+        generateValue: true
+      - key: AI_PROVIDER
+        value: vision
+      - key: AI_API_KEY
+        sync: false
+      - key: FCM_SERVER_KEY
+        sync: false
+      - key: FCM_URL
+        value: https://fcm.googleapis.com/fcm/send
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        value: no-reply@snickylink.app
+      - key: SMTP_TLS
+        value: "true"
+      - key: REDIS_HOST
+        fromService:
+          type: keyvalue
+          name: snickylink-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: keyvalue
+          name: snickylink-redis
+          property: port
+
+  - type: keyvalue
+    name: snickylink-redis
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere # tighten this once you know which IPs need external Redis access; internal services always reach it over the private network regardless
+
+databases:
+  - name: snickylink-db
+    databaseName: snickylink
