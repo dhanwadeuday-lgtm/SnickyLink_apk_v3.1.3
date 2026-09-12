@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: snickylink
+      POSTGRES_USER: snickylink
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snickylink -d snickylink"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      APP_ENV: production
+      RUN_SCHEDULER: "false"
+      RUN_EVENT_WORKER: "false"
+      DATABASE_URL: postgresql://snickylink:${POSTGRES_PASSWORD}@postgres:5432/snickylink
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      APP_ENV: production
+      RUN_SCHEDULER: "true"
+      RUN_EVENT_WORKER: "true"
+      DATABASE_URL: postgresql://snickylink:${POSTGRES_PASSWORD}@postgres:5432/snickylink
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: ["python", "-m", "app.worker"]
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

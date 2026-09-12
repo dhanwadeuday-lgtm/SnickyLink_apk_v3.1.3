@@ -1,0 +1,37 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      RUN_SCHEDULER: "false"
+      RUN_EVENT_WORKER: "false"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+    ports: ["8000:8000"]
+    depends_on: [postgres, redis]
+    restart: unless-stopped
+
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      RUN_SCHEDULER: "true"
+      RUN_EVENT_WORKER: "true"
+    command: python -m app.worker
+    depends_on: [postgres, redis]
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: snickylink
+      POSTGRES_USER: snickylink
+      POSTGRES_PASSWORD: CHANGE_ME
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  pgdata:

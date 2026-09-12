@@ -1,0 +1,13 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Keep the default flutter_lints rule set. Nothing here is treated as
+    # fatal for CI builds — see deploy/cloudflare_build.sh, which runs
+    # `flutter analyze` for diagnostics only and does not fail the build
+    # on warnings/infos (only `flutter build web` failing fails the build).
+
+analyzer:
+  errors:
+    # Don't let style-level lints block a production deploy build.
+    todo: ignore
