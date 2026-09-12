@@ -1,0 +1,62 @@
+name: Build Android APK
+
+# Builds a release APK you can hand to beta testers. Runs entirely on
+# GitHub's free runners -- no local Flutter/Android SDK install needed.
+#
+# How to get the APK after a run finishes:
+#   GitHub repo -> Actions tab -> this workflow run -> "Artifacts" section
+#   at the bottom -> download "snickylink-release-apk" (a .zip containing
+#   the .apk).
+#
+# To trigger manually: Actions tab -> "Build Android APK" -> "Run workflow".
+# It also runs automatically on every push to main.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/build-apk.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Generate Android project scaffold if missing
+        working-directory: frontend
+        run: |
+          if [ ! -d android ]; then
+            flutter create --platforms=android --org com.snickylink .
+          fi
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: frontend
+        # Set API_BASE_URL as a repo/environment "Variable" (Settings ->
+        # Secrets and variables -> Actions -> Variables) once you have a
+        # deployed backend URL; falls back to the placeholder domain until
+        # then, which is enough to get a working, installable APK.
+        run: |
+          flutter build apk --release \
+            --dart-define="API_BASE_URL=${API_BASE_URL:-https://api.snickylink.app}"
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snickylink-release-apk
+          path: frontend/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
