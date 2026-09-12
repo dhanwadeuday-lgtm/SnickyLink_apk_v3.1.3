@@ -11,7 +11,7 @@ from ...models.user import User
 from ...models.couple import Couple, CoupleMember
 from ...models.invite import Invite
 from ..deps import get_current_user, get_current_couple_id, get_current_active_user
-from ...core.security import SECRET_KEY, ALGORITHM
+from ..core.security import SECRET_KEY, ALGORITHM
 from ...services.analytics_service import AnalyticsService
 
 router = APIRouter()

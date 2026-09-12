@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from ...db.session import get_db, DbSession
 from ..deps import get_current_couple_id
 from ...models.snick import DailySnick, DailySnickState
-from ...models.couple import CoupleStats
+from ...models.snick import CoupleStats
 from ...services.reward_service import RewardService
 from ...models.analytics import AnalyticsEvent
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, UUID, ForeignKey, Integer
+from sqlalchemy import Column, String, UUID, ForeignKey, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from .base import Base, TimestampMixin
 import uuid

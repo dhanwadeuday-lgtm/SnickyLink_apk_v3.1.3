@@ -80,6 +80,7 @@ class DiamondTransaction(Base, TimestampMixin):
 
 class CoupleStats(Base):
     __tablename__ = "couple_stats"
+    __table_args__ = {"extend_existing": True}
 
     couple_id = Column(PGUUID(as_uuid=True), ForeignKey("couples.id", ondelete="CASCADE"), primary_key=True)
     total_diamonds = Column(Integer, default=0)
