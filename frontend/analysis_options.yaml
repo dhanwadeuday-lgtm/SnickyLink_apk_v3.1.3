@@ -11,3 +11,7 @@ analyzer:
   errors:
     # Don't let style-level lints block a production deploy build.
     todo: ignore
+  exclude:
+    - build/**
+    - web/**
+    - android/**
